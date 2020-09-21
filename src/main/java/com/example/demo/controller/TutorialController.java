@@ -6,10 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @CrossOrigin(origins = "http://localhost:8081")
 @RestController
@@ -20,20 +21,35 @@ public class TutorialController {
     TutorialRepository tutorialRepository;
 
     @GetMapping("/tutorials")
-    public ResponseEntity<List<Tutorial>> getAllTutorials(@RequestParam(required = false) String title) {
+    public ResponseEntity<Map<String, Object>> getAllTutorials(
+            @RequestParam(required = false) String title,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "3") int size
+    ) {
+
         try {
             List<Tutorial> tutorials = new ArrayList<Tutorial>();
+            Pageable paging = PageRequest.of(page, size);
 
+            Page<Tutorial> pageTuts;
             if (title == null)
-                tutorialRepository.findAll().forEach(tutorials::add);
+                pageTuts = tutorialRepository.findAll(paging);
             else
-                tutorialRepository.findByTitleContaining(title).forEach(tutorials::add);
+                pageTuts = tutorialRepository.findByTitleContaining(title, paging);
+
+            tutorials = pageTuts.getContent();
 
             if (tutorials.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
 
-            return new ResponseEntity<>(tutorials, HttpStatus.OK);
+            Map<String, Object> response = new HashMap<>();
+            response.put("tutorials", tutorials);
+            response.put("currentPage", pageTuts.getNumber());
+            response.put("totalItems", pageTuts.getTotalElements());
+            response.put("totalPages", pageTuts.getTotalPages());
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -98,14 +114,28 @@ public class TutorialController {
     }
 
     @GetMapping("/tutorials/published")
-    public ResponseEntity<List<Tutorial>> findByPublished() {
+    public ResponseEntity<Map<String, Object>> findByPublished(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "3") int size
+    ) {
         try {
-            List<Tutorial> tutorials = tutorialRepository.findByPublished(true);
+            List<Tutorial> tutorials = new ArrayList<Tutorial>();
+            Pageable paging = PageRequest.of(page, size);
+
+            Page<Tutorial> pageTuts = tutorialRepository.findByPublished(true, paging);
+            tutorials = pageTuts.getContent();
 
             if (tutorials.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(tutorials, HttpStatus.OK);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("tutorials", tutorials);
+            response.put("currentPage", pageTuts.getNumber());
+            response.put("totalItems", pageTuts.getTotalElements());
+            response.put("totalPages", pageTuts.getTotalPages());
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
